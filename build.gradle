@@ -1,20 +1,28 @@
-plugins {
-    id 'com.android.library'
-    id 'org.lsposed.lsparanoid'
-    id 'org.jetbrains.kotlin.android'
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.5.2'
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24'
+    }
 }
+
+apply plugin: 'com.android.library'
+apply plugin: 'org.jetbrains.kotlin.android'
 
 android {
 
-    compileSdk rootProject.ext.compileSdk
-    buildToolsVersion rootProject.ext.buildTools
+    compileSdk 36
+    buildToolsVersion "36.0.0"
 
     aidlPackagedList "android/app/IServiceConnection.aidl"
     aidlPackagedList "android/accounts/IAccountManagerResponse.aidl"
 
     defaultConfig {
-        minSdk rootProject.ext.minSdk
-        targetSdk rootProject.ext.targetSdk
+        minSdk 24
+        targetSdk 36
         versionCode 1
         versionName "1.0"
         consumerProguardFiles 'proguard.txt'
@@ -27,7 +35,7 @@ android {
     buildTypes {
     
         debug {
-            minifyEnabled true
+            minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     
@@ -48,12 +56,12 @@ android {
     }
     
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
     
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "17"
     }
 
     buildFeatures {
@@ -72,11 +80,11 @@ android {
         disable "UnusedResources", 'RestrictedApi'
         textOutput "stdout"
         textReport false
-        check 'NewApi', 'InlinedApi'
+        checkOnly 'NewApi', 'InlinedApi'
     }
 
     namespace "com.elite"
-    ndkVersion rootProject.ext.ndkVersion
+    ndkVersion "27.2.12479018"
     
     
 }
