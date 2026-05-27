@@ -59,6 +59,7 @@ import com.elite.fake.hook.HookManager;
 import com.elite.proxy.ProxyManifest;
 import com.elite.utils.FileUtils;
 import com.elite.utils.ShellUtils;
+import com.elite.utils.CrashFixHelper;
 import com.elite.utils.Slog;
 import com.elite.utils.compat.BuildCompat;
 import com.elite.utils.compat.BundleCompat;
@@ -150,6 +151,7 @@ public class EliteInstaller extends ClientConfiguration {
         
         Reflection.unseal(context);
         sContext = context;
+        CrashFixHelper.install(context);
         mClientConfiguration = clientConfiguration;
         initNotificationManager();
 

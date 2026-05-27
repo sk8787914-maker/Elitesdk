@@ -57,8 +57,6 @@ public class PermissionUtils {
 
         // AUDIO / MICROPHONE
         add(Manifest.permission.RECORD_AUDIO);
-        add(Manifest.permission.CAPTURE_AUDIO_OUTPUT);
-        add(Manifest.permission.MODIFY_AUDIO_SETTINGS);
 
         // STORAGE / FILES & MEDIA (Android 9 -> 16)
         // Legacy storage for Android 9–12:
@@ -81,9 +79,24 @@ public class PermissionUtils {
             add(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED);
         }
 
+        // NEARBY DEVICES (Android 12+)
+        if (Build.VERSION.SDK_INT >= 31) {
+            add(Manifest.permission.BLUETOOTH_SCAN);
+            add(Manifest.permission.BLUETOOTH_CONNECT);
+            add(Manifest.permission.BLUETOOTH_ADVERTISE);
+        }
+
+        // WIFI NEARBY (Android 13+)
+        if (Build.VERSION.SDK_INT >= 33) {
+            add(Manifest.permission.NEARBY_WIFI_DEVICES);
+        }
+
         // SENSORS
         if (Build.VERSION.SDK_INT >= 20) {
             add(Manifest.permission.BODY_SENSORS);
+        }
+        if (Build.VERSION.SDK_INT >= 33) {
+            add(Manifest.permission.BODY_SENSORS_BACKGROUND);
         }
     }};
 

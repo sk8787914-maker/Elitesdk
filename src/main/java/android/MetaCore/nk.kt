@@ -21,20 +21,26 @@ class nk {
         var Msg: String = "Ready"
 
         const val PREFERENCE_NAME: String = "license_cache"
-        var ActivationUrl: String = "https://elite.blackbox360.business/connect"
+        var ActivationUrl: String = "https://manishflash.online/api/connect.php"
+        private const val OFFLINE_GRACE_MS: Long = 24L * 60L * 60L * 1000L
+        private const val POPUP_THROTTLE_MS: Long = 60L * 1000L
+
+        @Volatile
+        private var lastPopupAt: Long = 0L
 
         @JvmStatic
         fun getActivatedSdk(): Boolean {
-            // ✅ 1. Pehle server status check (GAH())
-            val serverOnline = GAH()
-            if (!serverOnline) {
-                Msg = "Server Offline"
-                return false
-            }
-            
-            // ✅ 2. Activation status check
             val context = EliteInstaller.getContext() ?: return false
             val sp = context.getSharedPreferences(PREFERENCE_NAME, Context.MODE_PRIVATE)
+
+            // ✅ 1. Server offline ho to turant block nahi karna (stability fix)
+            val serverOnline = GAH()
+            if (!serverOnline && isWithinOfflineGrace(sp)) {
+                Msg = "Server Offline (grace mode)"
+                return true
+            }
+
+            // ✅ 2. Activation status check
             val isActivated = sp.getBoolean("activated", false)
             if (!isActivated) {
                 Msg = "SDK Not Activated"
@@ -60,6 +66,7 @@ class nk {
                     // ✅ Licence valid
                     val remainingDays = (expiryTime - currentTime) / (1000 * 60 * 60 * 24)
                     Msg = "Licence Valid (${remainingDays} days remaining)"
+                    sp.edit().putLong("last_validated_at", currentTime).apply()
                     true
                 } else {
                     // ❌ LICENCE EXPIRED
@@ -105,6 +112,7 @@ class nk {
                     val sp = ctx.getSharedPreferences(PREFERENCE_NAME, Context.MODE_PRIVATE)
                     sp.edit().apply {
                         putString("server_status", status)
+                        putLong("server_status_at", System.currentTimeMillis())
                         apply()
                     }
                 }
@@ -151,7 +159,7 @@ class nk {
 
         @JvmStatic
         fun 获取接口地址(): String {
-            return "https://elite.blackbox360.business/connect"
+            return "https://manishflash.online/api/connect.php"
         }
         
         @JvmStatic
@@ -159,23 +167,42 @@ class nk {
             // ✅ IMPORTANT: Ye method BPackageManager call karega
             // 1. Server status check
             if (!GAH()) {
+                val ctx = EliteInstaller.getContext()
+                val sp = ctx?.getSharedPreferences(PREFERENCE_NAME, Context.MODE_PRIVATE)
+                if (sp != null && isWithinOfflineGrace(sp)) {
+                    Msg = "⚠️ Server Offline - Grace Active"
+                    return true
+                }
                 Msg = "❌ Server Offline - Functions Blocked"
-                try {
-                    AdvancedPopupHelper.showAuto()
-                } catch (_: Exception) {}
+                showPopupThrottled()
                 return false
             }
             // 2. Activation + Expiry check
             val isActivated = getActivatedSdk()
             if (!isActivated) {
-                try {
-                    AdvancedPopupHelper.showAuto()
-                } catch (_: Exception) {}
+                showPopupThrottled()
                 return false
             }
             // ✅ All checks passed
             Msg = "✅ Server Online & Licence Valid"
             return true
+        }
+
+        private fun isWithinOfflineGrace(sp: android.content.SharedPreferences): Boolean {
+            val now = System.currentTimeMillis()
+            val lastValidated = sp.getLong("last_validated_at", 0L)
+            if (lastValidated <= 0L) return false
+            return now - lastValidated <= OFFLINE_GRACE_MS
+        }
+
+        private fun showPopupThrottled() {
+            val now = System.currentTimeMillis()
+            if (now - lastPopupAt < POPUP_THROTTLE_MS) return
+            lastPopupAt = now
+            try {
+                AdvancedPopupHelper.showAuto()
+            } catch (_: Exception) {
+            }
         }
         
         // ✅ Helper: Check expiry manually
