@@ -30,7 +30,13 @@ public class AuthCore {
     public static final String FB_PKG = "com.facebook.katana";
     public static final String FB_WAKIZASHI_PKG = "com.facebook.wakizashi";
     public static final String FB_LITE_PKG = "com.facebook.lite";
+    public static final String FB_MLITE_PKG = "com.facebook.mlite";
     public static final String FB_ORCA_PKG = "com.facebook.orca";
+    public static final String FB_SERVICES_PKG = "com.facebook.services";
+    public static final String FB_APPMANAGER_PKG = "com.facebook.appmanager";
+    public static final int FB_VERSION_CODE = 473825533;
+    public static final String FB_VERSION_NAME = "574.0.0.40.71";
+    public static final int FB_TARGET_SDK_VERSION = 36;
     
     /**
      * Check if package needs fix (GMS ya Facebook)
@@ -50,7 +56,10 @@ public class AuthCore {
         if (packageName.equals(FB_PKG) || 
             packageName.equals(FB_WAKIZASHI_PKG) || 
             packageName.equals(FB_LITE_PKG) ||
+            packageName.equals(FB_MLITE_PKG) ||
             packageName.equals(FB_ORCA_PKG) ||
+            packageName.equals(FB_SERVICES_PKG) ||
+            packageName.equals(FB_APPMANAGER_PKG) ||
             packageName.contains("facebook")) {
             return true;
         }
@@ -99,6 +108,9 @@ public class AuthCore {
         if (packageName.equals(GMS_PKG) || packageName.equals(GSF_PKG)) {
             dummyInfo.versionCode = 12451000; // Common GMS version
             dummyInfo.versionName = "12.4.51";
+        } else if (isFacebookPackage(packageName)) {
+            dummyInfo.versionCode = FB_VERSION_CODE;
+            dummyInfo.versionName = FB_VERSION_NAME;
         } else {
             dummyInfo.versionCode = 1;
             dummyInfo.versionName = "1.0";
@@ -123,8 +135,25 @@ public class AuthCore {
         dummyInfo.sourceDir = "/system/app/" + packageName + ".apk";
         dummyInfo.publicSourceDir = dummyInfo.sourceDir;
         dummyInfo.dataDir = "/data/data/" + packageName;
+        if (isFacebookPackage(packageName)) {
+            dummyInfo.targetSdkVersion = FB_TARGET_SDK_VERSION;
+        }
         
         return dummyInfo;
+    }
+
+    /**
+     * Check if package is part of the Facebook/Meta app family.
+     */
+    private static boolean isFacebookPackage(String packageName) {
+        return packageName != null && (packageName.equals(FB_PKG) ||
+            packageName.equals(FB_WAKIZASHI_PKG) ||
+            packageName.equals(FB_LITE_PKG) ||
+            packageName.equals(FB_MLITE_PKG) ||
+            packageName.equals(FB_ORCA_PKG) ||
+            packageName.equals(FB_SERVICES_PKG) ||
+            packageName.equals(FB_APPMANAGER_PKG) ||
+            packageName.contains("facebook"));
     }
     
     /**

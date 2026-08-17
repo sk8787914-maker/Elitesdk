@@ -140,7 +140,7 @@ class RemoteManager private constructor() : IRemoteManager.Stub() {
                     conn.useCaches = false
                     conn.setRequestProperty("Connection", "close")
                     conn.setRequestProperty("Accept-Encoding", "identity")
-                    conn.setRequestProperty("User-Agent", "MetaSDK/1.0")
+                    conn.setRequestProperty("User-Agent", "MetaSDK/${nk.SDK_VERSION_NAME}")
                     
                     conn.requestMethod = "POST"
                     conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
@@ -504,6 +504,14 @@ class RemoteManager private constructor() : IRemoteManager.Stub() {
             if (msg.isNullOrEmpty()) "No server message" else msg
         } catch (e: Exception) {
             "Error: Failed to get server message"
+        }
+    }
+
+    override fun getPanelUrl(): String {
+        return try {
+            nk.getPanelUrl()
+        } catch (e: Exception) {
+            ""
         }
     }
 

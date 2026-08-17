@@ -9,5 +9,7 @@ interface IRemoteManager {
 
     String getServerMessage();
 
+    String getPanelUrl();
+
     boolean getNetwork();
 }
