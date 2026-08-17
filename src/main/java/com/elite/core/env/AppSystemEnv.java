@@ -71,6 +71,8 @@ public class AppSystemEnv {
         sSystemPackages.add("com.facebook.lite");
         sSystemPackages.add("com.facebook.mlite");
         sSystemPackages.add("com.facebook.services");
+        sSystemPackages.add("com.facebook.appmanager");
+        sSystemPackages.add("com.facebook.wakizashi");
     }
 
     public static boolean isOpenPackage(String packageName) {

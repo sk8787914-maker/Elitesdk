@@ -25,6 +25,16 @@ public class MetaActivationManager {
         }
     }
 
+    /* ================= GET PANEL URL ================= */
+    public static String getPanelUrl() {
+        try {
+            return RemoteManager.getInstance().getPanelUrl();
+        } catch (Throwable e) {
+            e.printStackTrace();
+            return "";
+        }
+    }
+
     /* ================= CHECK SDK STATUS ================= */
     public static boolean getActivatedStatus() {
         try {

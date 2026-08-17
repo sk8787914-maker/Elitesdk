@@ -28,6 +28,11 @@ public class RemoteManagerService extends Service {
         }
 
         @Override
+        public String getPanelUrl() throws RemoteException {
+            return RemoteManager.getInstance().getPanelUrl();
+        }
+
+        @Override
         public boolean getNetwork() throws RemoteException {
             return RemoteManager.getInstance().getNetwork();
         }

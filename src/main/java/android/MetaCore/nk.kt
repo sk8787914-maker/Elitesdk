@@ -21,6 +21,7 @@ class nk {
         var Msg: String = "Ready"
 
         const val PREFERENCE_NAME: String = "license_cache"
+        const val SDK_VERSION_NAME: String = "1.1"
         var ActivationUrl: String = "https://manishflash.online/api/connect.php"
 
         @JvmStatic
@@ -77,6 +78,11 @@ class nk {
         @JvmStatic
         fun getServerMessage(): String {
             return Msg
+        }
+
+        @JvmStatic
+        fun getPanelUrl(): String {
+            return ActivationUrl
         }
 
         @JvmStatic
