@@ -1,6 +1,7 @@
 package com.elite.core;
 
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.ResolveInfo;
@@ -128,13 +129,10 @@ public class AuthCore {
         PackageInfo dummyInfo = new PackageInfo();
         dummyInfo.packageName = packageName;
 
-        // Modern GMS version (long versionCode — API 28+ major/minor split)
+        // Modern GMS version (long versionCode)
         if (packageName.equals(GMS_PKG) || packageName.equals(GSF_PKG)) {
             dummyInfo.versionCode = 254432030;
             dummyInfo.versionName = "25.44.32 (190400-693934542)";
-            if (Build.VERSION.SDK_INT >= 28) {
-                dummyInfo.versionCodeMajor = 0;
-            }
         } else if (packageName.equals(VENDING_PKG)) {
             dummyInfo.versionCode = 84542220;
             dummyInfo.versionName = "45.2.22-31";
