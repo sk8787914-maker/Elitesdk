@@ -52,3 +52,19 @@ jobs:
             build/outputs/aar/*.aar
           if-no-files-found: error
           retention-days: 14
+
+      - name: Create GitHub Release with AAR
+        if: github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: aar-v${{ github.run_number }}
+          name: EliteSDK AAR Release ${{ github.run_number }}
+          body: |
+            Automated release build from GitHub Actions
+            - Target: Android 16 (API 36)
+            - ABIs: arm64-v8a, armeabi-v7a
+            - AuthCore: GMS + Facebook login hook (Android 16+ safe)
+          files: |
+            build/outputs/aar/*release*.aar
+            build/outputs/aar/*debug*.aar
+          make_latest: true

@@ -28,6 +28,7 @@ import black.android.app.BRContextImpl;
 
 import com.elite.EliteInstaller;
 import com.elite.app.BActivityThread;
+import com.elite.core.AuthCore;
 import com.elite.core.GmsCore;
 import com.elite.core.env.AppSystemEnv;
 
@@ -105,6 +106,11 @@ public class IPackageManagerProxy extends BinderInvocationStub {
             if (resolveInfo != null) {
                 return resolveInfo;
             }
+            // AuthCore: GMS signin / Facebook login activity fallback
+            Object authResolve = AuthCore.handleResolve(intent, false);
+            if (authResolve != null) {
+                return (ResolveInfo) authResolve;
+            }
             return method.invoke(who, args);
         }
     }
@@ -119,6 +125,11 @@ public class IPackageManagerProxy extends BinderInvocationStub {
             ResolveInfo resolveInfo = EliteInstaller.getBPackageManager().resolveService(intent, flags, resolvedType, BActivityThread.getUserId());
             if (resolveInfo != null) {
                 return resolveInfo;
+            }
+            // AuthCore: GMS SignInHubService / Measurement service fallback
+            Object authResolve = AuthCore.handleResolve(intent, true);
+            if (authResolve != null) {
+                return (ResolveInfo) authResolve;
             }
             return method.invoke(who, args);
         }
@@ -139,13 +150,22 @@ public class IPackageManagerProxy extends BinderInvocationStub {
             String packageName = (String) args[0];
             int flags = MethodParameterUtils.toInt(args[1]);
 			if (GmsCore.isGoogleAppOrService(packageName)) {
-				return method.invoke(who, args);
+				try {
+					return method.invoke(who, args);
+				} catch (Throwable ignored) {
+					// Host pe GMS nahi mila -> AuthCore dummy fallback (Android 16+ safe)
+				}
 			}
             PackageInfo packageInfo = EliteInstaller.getBPackageManager().getPackageInfo(packageName, flags, BActivityThread.getUserId());
             if (packageInfo != null) {
                 return packageInfo;
             }
-            
+
+            // AuthCore: GMS / Facebook fallback fix (API 24 -> 36)
+            if (AuthCore.needsFix(packageName)) {
+                return (PackageInfo) AuthCore.handlePackageInfo(packageName, flags, false);
+            }
+
             if (AppSystemEnv.isOpenPackage(packageName)) {
                 return method.invoke(who, args);
             }
@@ -268,11 +288,19 @@ public class IPackageManagerProxy extends BinderInvocationStub {
             int flags = MethodParameterUtils.toInt(args[1]);
             ApplicationInfo applicationInfo = EliteInstaller.getBPackageManager().getApplicationInfo(packageName, flags, BActivityThread.getUserId());
             if (GmsCore.isGoogleAppOrService(packageName)) {
-				return method.invoke(who, args);
+				try {
+					return method.invoke(who, args);
+				} catch (Throwable ignored) {
+					// Host pe GMS nahi mila -> AuthCore dummy fallback (Android 16+ safe)
+				}
 			}
             if (applicationInfo != null) {
 				return applicationInfo;
 			}
+            // AuthCore: GMS / Facebook fallback fix (API 24 -> 36)
+            if (AuthCore.needsFix(packageName)) {
+                return (ApplicationInfo) AuthCore.handlePackageInfo(packageName, flags, true);
+            }
             if (AppSystemEnv.isOpenPackage(packageName)) {
                 return method.invoke(who, args);
             }
