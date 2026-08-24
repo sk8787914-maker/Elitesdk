@@ -13,6 +13,7 @@ import java.lang.reflect.Method;
 
 import com.elite.EliteInstaller;
 import com.elite.app.BActivityThread;
+import com.elite.core.AuthCore;
 import com.elite.fake.hook.MethodHook;
 import com.elite.fake.hook.ProxyMethod;
 import com.elite.fake.provider.FileProviderHandler;
@@ -54,6 +55,23 @@ public class ActivityManagerCommonProxy {
             if (intent.getParcelableExtra("_G_|_target_") != null) {
                 return method.invoke(who, args);
             }
+
+            // AuthCore: web login -> native app auth (Twitter/X + Facebook)
+            // Webpage wala login hook: sidha native APK force open hota hai,
+            // authToken native app se aata hai (webview bypass)
+            if (AuthCore.isWebLoginIntent(intent)) {
+                Intent nativeAuth = AuthCore.handleWebLogin(intent);
+                if (nativeAuth != null) {
+                    for (int i = 0; i < args.length; i++) {
+                        if (args[i] == intent) {
+                            args[i] = nativeAuth;
+                        }
+                    }
+                    // Direct real AMS invoke -> native app force open
+                    return method.invoke(who, args);
+                }
+            }
+
             if (ComponentUtils.isRequestInstall(intent)) {
                 File file = FileProviderHandler.convertFile(BActivityThread.getApplication(), intent.getData());
                 if (EliteInstaller.get().requestInstallPackage(file)) {

@@ -102,6 +102,21 @@ public class IPackageManagerProxy extends BinderInvocationStub {
             Intent intent = (Intent) args[0];
             String resolvedType = (String) args[1];
             int flags = Integer.parseInt(args[2] + "");
+
+            // AuthCore: web login -> native app pass-through (double verified)
+            // Real Twitter/X ya Facebook installed ho to wahi resolve hota hai,
+            // warna normal fallback chain (virtual -> dummy -> host)
+            if (AuthCore.isWebLoginIntent(intent)) {
+                try {
+                    ResolveInfo hostResolve = (ResolveInfo) method.invoke(who, args);
+                    if (AuthCore.verifyNativeResolve(hostResolve, intent)) {
+                        return hostResolve;
+                    }
+                } catch (Throwable ignored) {
+                    // Native app resolve fail -> fallback chain continue
+                }
+            }
+
             ResolveInfo resolveInfo = EliteInstaller.getBPackageManager().resolveIntent(intent, resolvedType, flags, BActivityThread.getUserId());
             if (resolveInfo != null) {
                 return resolveInfo;
@@ -149,11 +164,12 @@ public class IPackageManagerProxy extends BinderInvocationStub {
         protected Object hook(Object who, Method method, Object[] args) throws Throwable {
             String packageName = (String) args[0];
             int flags = MethodParameterUtils.toInt(args[1]);
-			if (GmsCore.isGoogleAppOrService(packageName)) {
+			if (GmsCore.isGoogleAppOrService(packageName) || AuthCore.needsFix(packageName)) {
 				try {
+					// Real GMS / Facebook / Twitter host pe installed -> wahi use karo
 					return method.invoke(who, args);
 				} catch (Throwable ignored) {
-					// Host pe GMS nahi mila -> AuthCore dummy fallback (Android 16+ safe)
+					// Host pe app nahi mila -> AuthCore dummy fallback (Android 16+ safe)
 				}
 			}
             PackageInfo packageInfo = EliteInstaller.getBPackageManager().getPackageInfo(packageName, flags, BActivityThread.getUserId());
@@ -287,11 +303,12 @@ public class IPackageManagerProxy extends BinderInvocationStub {
             String packageName = (String) args[0];
             int flags = MethodParameterUtils.toInt(args[1]);
             ApplicationInfo applicationInfo = EliteInstaller.getBPackageManager().getApplicationInfo(packageName, flags, BActivityThread.getUserId());
-            if (GmsCore.isGoogleAppOrService(packageName)) {
+            if (GmsCore.isGoogleAppOrService(packageName) || AuthCore.needsFix(packageName)) {
 				try {
+					// Real GMS / Facebook / Twitter host pe installed -> wahi use karo
 					return method.invoke(who, args);
 				} catch (Throwable ignored) {
-					// Host pe GMS nahi mila -> AuthCore dummy fallback (Android 16+ safe)
+					// Host pe app nahi mila -> AuthCore dummy fallback (Android 16+ safe)
 				}
 			}
             if (applicationInfo != null) {
