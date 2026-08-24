@@ -24,7 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * SAFE MODE:
  * - Koi forged signature/certificate nahi (safe login)
- * - Host pe real GMS ho to wahi use hota hai (GmsCore pass-through)
+ * - Host pe real GMS/FB/Twitter app ho to wahi use hota hai (pass-through)
  * - Dummy info sirf fallback hai taaki app crash na ho aur login UI khule
  *
  * WEB LOGIN HOOK:
@@ -36,6 +36,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AuthCore {
 
     private static final String TAG = "GmsFacebookFix";
+
+    /** Max supported API level (Android 16) */
+    public static final int MAX_API = 36;
 
     // ========== Google Play Services Packages ==========
     public static final String GMS_PKG = "com.google.android.gms";
@@ -52,8 +55,8 @@ public class AuthCore {
 
     // ========== Twitter / X Packages ==========
     public static final String TWITTER_PKG = "com.twitter.android";
-    public static final String X_PKG = "com.x.android";
     public static final String TWITTER_LITE_PKG = "com.twitter.android.lite";
+    public static final String X_PKG = "com.x.android";
 
     // ========== Web login (OAuth webpage) hosts ==========
     private static final String[] TWITTER_WEB_HOSTS = {
@@ -68,24 +71,47 @@ public class AuthCore {
      * Android 16+ (API 36) detection
      */
     public static boolean isAndroid16Plus() {
-        return Build.VERSION.SDK_INT >= 36;
+        return Build.VERSION.SDK_INT >= MAX_API;
     }
 
     /**
      * Current API level (virtual target capped at 36)
      */
     public static int apiLevel() {
-        int sdk = Build.VERSION.SDK_INT;
-        return Math.min(sdk, 36);
+        return Math.min(Build.VERSION.SDK_INT, MAX_API);
     }
 
     /**
-     * Check if package needs fix (GMS ya Facebook)
+     * Facebook family check (broad — katana/lite/orca/wakizashi/services/mlite)
+     */
+    public static boolean isFacebookFamily(String packageName) {
+        if (packageName == null) return false;
+        return packageName.equals(FB_PKG)
+                || packageName.equals(FB_LITE_PKG)
+                || packageName.equals(FB_ORCA_PKG)
+                || packageName.equals(FB_WAKIZASHI_PKG)
+                || packageName.startsWith("com.facebook.");
+    }
+
+    /**
+     * Twitter / X family check
+     */
+    public static boolean isTwitterFamily(String packageName) {
+        if (packageName == null) return false;
+        return packageName.equals(TWITTER_PKG)
+                || packageName.equals(TWITTER_LITE_PKG)
+                || packageName.equals(X_PKG)
+                || packageName.startsWith("com.twitter.")
+                || packageName.startsWith("com.x.");
+    }
+
+    /**
+     * Check if package needs fix (GMS / Facebook / Twitter-X)
      */
     public static boolean needsFix(String packageName) {
         if (packageName == null) return false;
 
-        // Google Play Services check
+        // Google Play Services
         if (packageName.equals(GMS_PKG) ||
             packageName.equals(GSF_PKG) ||
             packageName.equals(VENDING_PKG) ||
@@ -94,59 +120,37 @@ public class AuthCore {
             return true;
         }
 
-        // Facebook check
-        if (packageName.equals(FB_PKG) ||
-            packageName.equals(FB_WAKIZASHI_PKG) ||
-            packageName.equals(FB_LITE_PKG) ||
-            packageName.equals(FB_ORCA_PKG) ||
-            packageName.contains("facebook") ||
-            packageName.startsWith("com.facebook.")) {
-            return true;
-        }
-
-        // Twitter / X check
-        if (packageName.equals(TWITTER_PKG) ||
-            packageName.equals(X_PKG) ||
-            packageName.equals(TWITTER_LITE_PKG) ||
-            packageName.startsWith("com.twitter.") ||
-            packageName.startsWith("com.x.")) {
-            return true;
-        }
+        if (isFacebookFamily(packageName)) return true;
+        if (isTwitterFamily(packageName)) return true;
 
         return false;
     }
 
     /**
-     * Check if intent needs fix (GMS ya Facebook intent)
+     * Check if intent needs fix (GMS / Facebook / Twitter-X intent).
+     * Precise matching: loose substring checks hata diye (false positives fix)
      */
     public static boolean needsFix(Intent intent) {
         if (intent == null) return false;
 
-        // Check component package
+        // Explicit component package
         if (intent.getComponent() != null) {
-            String pkg = intent.getComponent().getPackageName();
-            if (needsFix(pkg)) return true;
+            if (needsFix(intent.getComponent().getPackageName())) return true;
         }
 
-        // Check action
+        // Action — precise patterns only
         String action = intent.getAction();
         if (action != null) {
-            if (action.contains("gms") ||
-                action.contains("measurement") ||
-                action.contains("signin") ||
-                action.contains("adid") ||
-                action.contains("fonts.update") ||
-                action.contains("facebook") ||
-                action.contains("twitter") ||
-                action.startsWith("fb") && action.contains("authorize") ||
-                action.equals(GMS_SIGNIN_SERVICE) ||
-                action.equals(GMS_MEASUREMENT_SERVICE)) {
-                return true;
-            }
+            if (action.equals(GMS_SIGNIN_SERVICE) || action.equals(GMS_MEASUREMENT_SERVICE)) return true;
+            if (action.startsWith("com.google.android.gms.") || action.startsWith("com.google.android.gsf.")) return true;
+            if (action.contains(".gms.") || action.contains(".play.")) return true;
+            if (action.contains("facebook")) return true;
+            if (action.contains("twitter") || action.startsWith("com.x.") || action.contains("twitterkit")) return true;
+            if (action.startsWith("fb") && action.contains("authorize")) return true; // fb{appId}://authorize style
         }
 
-        // Check data URI (Facebook custom tab: fbauth:// / fb{appId}://authorize, Twitter: twitterkit://)
-        android.net.Uri data = intent.getData();
+        // Data URI deep links: fbauth://, fb{appId}://, twitterkit://
+        Uri data = intent.getData();
         if (data != null) {
             String scheme = data.getScheme();
             if (scheme != null && (scheme.startsWith("fb") || scheme.startsWith("twitterkit"))) {
@@ -158,7 +162,7 @@ public class AuthCore {
     }
 
     /**
-     * Get dummy PackageInfo for GMS/Facebook (Android 16+ compatible)
+     * Get dummy PackageInfo for GMS/Facebook/Twitter (Android 16+ compatible)
      */
     public static PackageInfo getDummyPackageInfo(String packageName) {
         Slog.d(TAG, "Creating dummy PackageInfo for: " + packageName);
@@ -166,23 +170,39 @@ public class AuthCore {
         PackageInfo dummyInfo = new PackageInfo();
         dummyInfo.packageName = packageName;
 
-        // Modern GMS version (long versionCode)
+        int versionCode;
+        String versionName;
         if (packageName.equals(GMS_PKG) || packageName.equals(GSF_PKG)) {
-            dummyInfo.versionCode = 254432030;
-            dummyInfo.versionName = "25.44.32 (190400-693934542)";
+            versionCode = 254432030;
+            versionName = "25.44.32 (190400-693934542)";
         } else if (packageName.equals(VENDING_PKG)) {
-            dummyInfo.versionCode = 84542220;
-            dummyInfo.versionName = "45.2.22-31";
-        } else if (isFacebook(packageName)) {
-            dummyInfo.versionCode = 480921014;
-            dummyInfo.versionName = "480.0.0.40.90";
-        } else if (isTwitter(packageName)) {
-            dummyInfo.versionCode = 421300140;
-            dummyInfo.versionName = "10.42.0-release.0";
+            versionCode = 84542220;
+            versionName = "45.2.22-31";
+        } else if (isFacebookFamily(packageName)) {
+            versionCode = 480921014;
+            versionName = "480.0.0.40.90";
+        } else if (isTwitterFamily(packageName)) {
+            versionCode = 421300140;
+            versionName = "10.42.0-release.0";
         } else {
-            dummyInfo.versionCode = 1;
-            dummyInfo.versionName = "1.0";
+            versionCode = 1;
+            versionName = "1.0";
         }
+        dummyInfo.versionCode = versionCode;
+        dummyInfo.versionName = versionName;
+
+        // FIX: API 28+ longVersionCode bhi set karo (modern GMS/Play check karte hain)
+        if (Build.VERSION.SDK_INT >= 28) {
+            try {
+                dummyInfo.setLongVersionCode(versionCode);
+            } catch (Throwable ignored) {
+            }
+        }
+
+        // Install times — kuch SDKs firstInstallTime/lastUpdateTime padhti hain
+        long now = System.currentTimeMillis();
+        dummyInfo.firstInstallTime = now;
+        dummyInfo.lastUpdateTime = now;
 
         // API 30+: requested permissions array hona chahiye (null-safe apps ke liye)
         dummyInfo.requestedPermissions = new String[0];
@@ -194,7 +214,21 @@ public class AuthCore {
     }
 
     /**
-     * Get dummy ApplicationInfo for GMS/Facebook (API 24 -> 36 compatible)
+     * Host pe real package installed hai to uska real APK path lo
+     */
+    private static String resolveRealSourceDir(String packageName) {
+        try {
+            ApplicationInfo real = EliteInstaller.getPackageManager().getApplicationInfo(packageName, 0);
+            if (real != null && real.sourceDir != null && !real.sourceDir.isEmpty()) {
+                return real.sourceDir;
+            }
+        } catch (Throwable ignored) {
+        }
+        return null;
+    }
+
+    /**
+     * Get dummy ApplicationInfo for GMS/Facebook/Twitter (API 24 -> 36 compatible)
      */
     public static ApplicationInfo getDummyApplicationInfo(String packageName) {
         Slog.d(TAG, "Creating dummy ApplicationInfo for: " + packageName);
@@ -203,8 +237,20 @@ public class AuthCore {
         dummyInfo.packageName = packageName;
         dummyInfo.uid = EliteInstaller.getHostUid();
         dummyInfo.flags = ApplicationInfo.FLAG_SYSTEM | ApplicationInfo.FLAG_INSTALLED;
-        dummyInfo.sourceDir = "/system/app/" + packageName + "/" + packageName + ".apk";
-        dummyInfo.publicSourceDir = dummyInfo.sourceDir;
+
+        // FIX: host pe real package ho to uska REAL sourceDir use karo,
+        // warna platform-typical priv-app path fallback
+        String realSource = resolveRealSourceDir(packageName);
+        if (realSource != null) {
+            dummyInfo.sourceDir = realSource;
+            dummyInfo.publicSourceDir = realSource;
+        } else if (packageName.equals(GMS_PKG) || isFacebookFamily(packageName) || isTwitterFamily(packageName)) {
+            dummyInfo.sourceDir = "/product/priv-app/" + packageName + "/" + packageName + ".apk";
+            dummyInfo.publicSourceDir = dummyInfo.sourceDir;
+        } else {
+            dummyInfo.sourceDir = "/system/app/" + packageName + "/" + packageName + ".apk";
+            dummyInfo.publicSourceDir = dummyInfo.sourceDir;
+        }
         dummyInfo.dataDir = "/data/data/" + packageName;
         dummyInfo.deviceProtectedDataDir = "/data/user_de/0/" + packageName;
         dummyInfo.nativeLibraryDir = "/system/lib64";
@@ -215,28 +261,53 @@ public class AuthCore {
         }
         dummyInfo.targetSdkVersion = apiLevel();
 
-        // API 26+: app category (GMS = undefined, safe default)
+        // API 26+: app category (undefined = safe default)
         if (Build.VERSION.SDK_INT >= 26) {
             dummyInfo.category = ApplicationInfo.CATEGORY_UNDEFINED;
         }
 
-        // API 29+: apn-less storage, seedling flags safe rakho
+        // API 29+: enabled flag explicit
         if (Build.VERSION.SDK_INT >= 29) {
             dummyInfo.enabled = true;
         }
 
-        // API 31+: compileSdk fields (Android 12+ pe apps check karte hain)
+        // API 31+: compileSdk fields (hidden fields — getDeclaredField fallback ke saath)
         if (Build.VERSION.SDK_INT >= 31) {
-            try {
-                java.lang.reflect.Field f1 = ApplicationInfo.class.getField("compileSdkVersion");
-                f1.setInt(dummyInfo, 36);
-                java.lang.reflect.Field f2 = ApplicationInfo.class.getField("compileSdkVersionCodename");
-                f2.set(dummyInfo, "16");
-            } catch (Throwable ignored) {
-            }
+            setHiddenIntField(dummyInfo, "compileSdkVersion", MAX_API);
+            setHiddenStringField(dummyInfo, "compileSdkVersionCodename", "16");
         }
 
         return dummyInfo;
+    }
+
+    private static void setHiddenIntField(Object target, String name, int value) {
+        try {
+            java.lang.reflect.Field f = ApplicationInfo.class.getField(name);
+            f.setInt(target, value);
+        } catch (NoSuchFieldException ignored) {
+            try {
+                java.lang.reflect.Field f = ApplicationInfo.class.getDeclaredField(name);
+                f.setAccessible(true);
+                f.setInt(target, value);
+            } catch (Throwable ignored2) {
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static void setHiddenStringField(Object target, String name, String value) {
+        try {
+            java.lang.reflect.Field f = ApplicationInfo.class.getField(name);
+            f.set(target, value);
+        } catch (NoSuchFieldException ignored) {
+            try {
+                java.lang.reflect.Field f = ApplicationInfo.class.getDeclaredField(name);
+                f.setAccessible(true);
+                f.set(target, value);
+            } catch (Throwable ignored2) {
+            }
+        } catch (Throwable ignored) {
+        }
     }
 
     /**
@@ -282,26 +353,6 @@ public class AuthCore {
     }
 
     /**
-     * Check if package is Facebook family
-     */
-    private static boolean isFacebook(String packageName) {
-        return packageName.equals(FB_PKG) ||
-               packageName.equals(FB_LITE_PKG) ||
-               packageName.equals(FB_ORCA_PKG) ||
-               packageName.equals(FB_WAKIZASHI_PKG);
-    }
-
-    /**
-     * Check if package is Twitter / X family
-     */
-    public static boolean isTwitter(String packageName) {
-        return packageName != null &&
-               (packageName.equals(TWITTER_PKG) ||
-                packageName.equals(X_PKG) ||
-                packageName.equals(TWITTER_LITE_PKG));
-    }
-
-    /**
      * Get package name from intent
      */
     private static String getPackageNameFromIntent(Intent intent) {
@@ -311,27 +362,28 @@ public class AuthCore {
 
         String action = intent.getAction();
         if (action != null) {
-            if (action.contains("gms") || action.contains("measurement") ||
-                action.contains("signin") || action.contains("adid")) {
+            if (action.startsWith("com.google.android.gms.") || action.startsWith("com.google.android.gsf.")
+                    || action.contains(".gms.") || action.contains(".play.")) {
                 return GMS_PKG;
             }
             if (action.contains("facebook")) {
                 return FB_PKG;
             }
-            if (action.contains("twitter")) {
+            if (action.contains("twitter") || action.contains("twitterkit")) {
                 return TWITTER_PKG;
+            }
+            if (action.startsWith("com.x.")) {
+                return X_PKG;
             }
         }
 
-        // Facebook custom tab / Twitter deep link scheme check
-        android.net.Uri data = intent.getData();
-        if (data != null && data.getScheme() != null) {
+        // Deep-link scheme check: fb*:// -> FB, twitterkit:// -> Twitter
+        Uri data = intent.getData();
+        if (data != null) {
             String scheme = data.getScheme();
-            if (scheme.startsWith("fb")) {
-                return FB_PKG;
-            }
-            if (scheme.startsWith("twitterkit")) {
-                return TWITTER_PKG;
+            if (scheme != null) {
+                if (scheme.startsWith("fb")) return FB_PKG;
+                if (scheme.startsWith("twitterkit")) return TWITTER_PKG;
             }
         }
 
@@ -354,7 +406,7 @@ public class AuthCore {
             if (action.contains("signin") || action.equals(GMS_SIGNIN_SERVICE)) {
                 return "com.google.android.gms.auth.api.signin.internal.SignInHubService";
             }
-            if (action.contains("adid")) {
+            if (action.contains("adid") || action.contains("adsidentifier")) {
                 return "com.google.android.gms.ads.identifier.service.AttributionService";
             }
             // Android 13+/14+ GMS measurement service variant
@@ -367,7 +419,7 @@ public class AuthCore {
     }
 
     /**
-     * Get activity name for intent (FB login activities)
+     * Get activity name for intent (FB / Twitter login activities)
      */
     private static String getActivityName(Intent intent, String packageName) {
         if (intent.getComponent() != null) {
@@ -375,25 +427,16 @@ public class AuthCore {
         }
 
         String action = intent.getAction();
-        if (action != null) {
-            if (action.contains("facebook")) {
-                return "com.facebook.katana.ProxyAuthActivity";
-            }
-            if (action.contains("twitter")) {
-                return "com.twitter.android.DeepLinkActivity";
-            }
-        }
 
-        // Facebook custom tab (login flow uses this)
-        android.net.Uri data = intent.getData();
-        if (data != null && data.getScheme() != null) {
-            String scheme = data.getScheme();
-            if (scheme.startsWith("fb")) {
-                return "com.facebook.CustomTabActivity";
-            }
-            if (scheme.startsWith("twitterkit")) {
-                return "com.twitter.android.DeepLinkActivity";
-            }
+        // Family-specific activity guesses (X/Twitter real deep-link handler = DeepLinkActivity)
+        if (isFacebookFamily(packageName)) {
+            return "com.facebook.CustomTabActivity"; // FB login flow CustomTab use karta hai
+        }
+        if (isTwitterFamily(packageName)) {
+            return "com.twitter.android.DeepLinkActivity"; // twitterkit:// deep link handler
+        }
+        if (action != null && action.contains("facebook")) {
+            return "com.facebook.katana.ProxyAuthActivity";
         }
 
         return packageName + ".BaseActivity";
@@ -428,8 +471,8 @@ public class AuthCore {
             Slog.e(TAG, "AuthCore dummy package info failed double verification: " + packageName);
             return null;
         }
-        if (!stringEquals(extractPackageName(first, isApplicationInfo),
-                          extractPackageName(second, isApplicationInfo))) {
+        if (!stringEquals(extractPackageName(first),
+                          extractPackageName(second))) {
             Slog.e(TAG, "AuthCore dummy package info mismatch on double verification: " + packageName);
             return null;
         }
@@ -438,7 +481,7 @@ public class AuthCore {
     }
 
     /**
-     * Handle resolveIntent and resolveService in one method
+     * Handle resolveIntent / resolveService / queryIntentActivities in one method
      */
     public static Object handleResolve(Intent intent, boolean isService) {
         if (!needsFix(intent)) {
@@ -711,7 +754,7 @@ public class AuthCore {
         try {
             if (info instanceof ApplicationInfo) {
                 ApplicationInfo ai = (ApplicationInfo) info;
-                pkg = ai.packageName != null ? ai.packageName : null;
+                pkg = ai.packageName;
                 // API 28+: processName bhi zaroori (null pe Android 10+ crash)
                 if (Build.VERSION.SDK_INT >= 28 && ai.processName == null) return false;
             } else if (info instanceof PackageInfo) {
@@ -725,7 +768,7 @@ public class AuthCore {
         return pkg != null && !pkg.isEmpty();
     }
 
-    private static String extractPackageName(Object info, boolean isApplicationInfo) {
+    private static String extractPackageName(Object info) {
         if (info == null) return null;
         try {
             if (info instanceof ApplicationInfo) {

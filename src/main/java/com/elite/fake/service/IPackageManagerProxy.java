@@ -21,6 +21,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import black.android.app.BRActivityThread;
@@ -332,6 +333,35 @@ public class IPackageManagerProxy extends BinderInvocationStub {
             int flags = MethodParameterUtils.toInt(args[2]);
             List<ProviderInfo> providers = EliteInstaller.getBPackageManager().queryContentProviders(BActivityThread.getAppProcessName(), BActivityThread.getBUid(), flags, BActivityThread.getUserId());
             return ParceledListSliceCompat.create(providers);
+        }
+    }
+
+    @ProxyMethod("queryIntentActivities")
+    public static class QueryIntentActivities extends MethodHook {
+        @Override
+        protected Object hook(Object who, Method method, Object[] args) throws Throwable {
+            Intent intent = MethodParameterUtils.getFirstParam(args, Intent.class);
+            String type = MethodParameterUtils.getFirstParam(args, String.class);
+            Integer flags = MethodParameterUtils.getFirstParam(args, Integer.class);
+            int flagValue = flags != null ? flags.intValue() : 0;
+            List<ResolveInfo> resolves;
+            try {
+                resolves = EliteInstaller.getBPackageManager().queryIntentActivities(intent, flagValue, type, BActivityThread.getUserId());
+            } catch (Throwable e) {
+                resolves = null;
+                Slog.w(TAG, "queryIntentActivities failed: " + e.getMessage());
+            }
+
+            // FIX: FB / Twitter / GMS native login detection — host app installed na ho
+            // to bhi non-empty result do taaki SDK native login try kare (crash/webview fallback nahi)
+            if ((resolves == null || resolves.isEmpty()) && intent != null && AuthCore.needsFix(intent)) {
+                Object authResolve = AuthCore.handleResolve(intent, false);
+                if (authResolve != null) {
+                    Slog.d(TAG, "queryIntentActivities: AuthCore fallback for " + intent);
+                    return ParceledListSliceCompat.create(Collections.singletonList((ResolveInfo) authResolve));
+                }
+            }
+            return ParceledListSliceCompat.create(resolves != null ? resolves : new ArrayList<>());
         }
     }
 

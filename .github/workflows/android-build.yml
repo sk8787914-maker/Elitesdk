@@ -14,10 +14,10 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -54,16 +54,16 @@ jobs:
           retention-days: 14
 
       - name: Create GitHub Release with AAR
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: aar-v${{ github.run_number }}
           name: EliteSDK AAR Release ${{ github.run_number }}
           body: |
-            Automated release build from GitHub Actions
+            Automated release build from GitHub Actions (auto-release on push to main)
             - Target: Android 16 (API 36)
             - ABIs: arm64-v8a, armeabi-v7a
-            - AuthCore: GMS + Facebook login hook (Android 16+ safe)
+            - AuthCore: GMS + Facebook + Twitter/X login fix (Android 16+ safe)
           files: |
             build/outputs/aar/*release*.aar
             build/outputs/aar/*debug*.aar
