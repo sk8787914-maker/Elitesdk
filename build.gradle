@@ -74,9 +74,7 @@ android {
         checkReleaseBuilds false
         abortOnError false
         warningsAsErrors false
-        disable "UnusedResources", 'RestrictedApi'
-        textOutput "stdout"
-        textReport false
+        disable 'UnusedResources', 'RestrictedApi'
         checkOnly 'NewApi', 'InlinedApi'
     }
 
