@@ -10,6 +10,12 @@ Android app virtualization engine with GMS / Facebook / Twitter-X login support 
   - Dummy fallback: crash-free dummy info taaki login UI khule
   - Safe mode: koi signature forgery nahi
 - Native login detection via `resolveIntent` / `resolveService` / `queryIntentActivities`
+- **GMS auto-provision**: host pe real GMS ho to VM me automatic install
+  (install-time + launch-time) — "Google Play Services unusable" fix
+- **AuthCallbackRelayActivity**: native app (X/Twitter/FB) OAuth callback
+  (`twitterkit://` / `fb{appId}://`) host se VM ke game tak relay —
+  "ITOP Web Login Loading..." fix. Host apps apni game ki `fb<APP_ID>`
+  scheme manifest merger se relay activity pe add kar sakte hain.
 - ABIs: arm64-v8a, armeabi-v7a
 
 ## Integration

@@ -61,6 +61,7 @@ import com.elite.EliteInstaller;
 import com.elite.app.configuration.AppLifecycleCallback;
 import com.elite.app.dispatcher.AppServiceDispatcher;
 import com.elite.core.CrashHandler;
+import com.elite.core.GmsCore;
 import com.elite.core.IBActivityThread;
 import com.elite.core.VCore;
 import com.elite.core.VNative;
@@ -246,6 +247,7 @@ public class BActivityThread extends IBActivityThread.Stub {
     public synchronized void handleBindApplication(String packageName, String processName) {
         if (isInit())
             return;
+        provisionGmsIfNeeded();
         try {
             CrashHandler.create();
         } catch (Throwable ignored) {
@@ -337,6 +339,29 @@ public class BActivityThread extends IBActivityThread.Stub {
         }
     }
     
+    /**
+     * Launch-time GMS provisioning: host pe GMS ho lekin VM me na installed ho
+     * (purane installs) to background me install karo —
+     * "Google Play Services unusable" fix. App start block nahi hota.
+     */
+    private void provisionGmsIfNeeded() {
+        try {
+            final int userId = getUserId();
+            if (GmsCore.isGoogleAppOrService(getAppPackageName())) return;
+            if (!GmsCore.isSupportGms()) return;
+            if (GmsCore.isInstalledGoogleService(userId)) return;
+            EliteInstaller.get().getHandler().post(() -> {
+                try {
+                    GmsCore.installGApps(userId);
+                    Slog.d("BActivityThread", "GMS provisioned into VM user " + userId);
+                } catch (Throwable t) {
+                    Slog.e("BActivityThread", "GMS provision failed: " + t);
+                }
+            });
+        } catch (Throwable ignored) {
+        }
+    }
+
     private void fixAiLiaoPhoto(Application application) throws Throwable {
 		if (application.getPackageName().equals("com.mosheng")) {
 			ClassLoader loader = AppInstrumentation.get().getDelegateAppClassLoader();

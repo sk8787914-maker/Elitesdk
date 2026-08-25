@@ -325,6 +325,31 @@
             android:excludeFromRecents="true"
             android:theme="@style/LauncherTheme" />
 
+        <!-- Auth callback relay: native app (X/Twitter/Facebook) OAuth callback
+             ko VM ke andar game tak pahunchata hai (Loading... fix).
+             Host apps apne game ki fb{APP_ID} scheme manifest merger se add kar sakte hain. -->
+        <activity
+            android:name=".proxy.AuthCallbackRelayActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|fontScale">
+            <intent-filter android:priority="999">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="twitterkit" />
+            </intent-filter>
+            <intent-filter android:priority="999">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="fb" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name="com.elite.proxy.ProxyVpnService"
             android:enabled="true"

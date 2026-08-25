@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.elite.EliteInstaller;
 import com.elite.core.GmsCore;
@@ -67,6 +68,8 @@ public class BPackageManagerService extends IBPackageManagerService.Stub impleme
     public static BPackageManagerService sService = new BPackageManagerService();
     private final Settings mSettings = new Settings();      // 等同于 PackageCacheManager
     private final ComponentResolver mComponentResolver;
+    /** GMS auto-install recursion guard (installGApps -> installPackageAsUser -> auto) */
+    private final AtomicBoolean mGmsAutoInstalling = new AtomicBoolean(false);
     private static final BUserManagerService sUserManager = BUserManagerService.get();
     private final List<PackageMonitor> mPackageMonitors = new ArrayList<>();
     private final HashMap<String, BPackage.Permission> mPermissions = new HashMap<>();
@@ -520,9 +523,16 @@ public class BPackageManagerService extends IBPackageManagerService.Stub impleme
 
     @Override
     public InstallResult installPackageAsUser(String file, InstallOption option, int userId) {
+        InstallResult result;
         synchronized (mInstallLock) {
-            return installPackageAsUserLocked(file, option, userId);
+            result = installPackageAsUserLocked(file, option, userId);
         }
+        // GMS auto-provision lock ke BAHAR — nested install binder call
+        // wapas isi service me aata hai, lock ke andar deadlock hota
+        if (result != null && result.success) {
+            autoInstallGmsIfNeeded(result.packageName, userId);
+        }
+        return result;
     }
 
     @Override
@@ -779,6 +789,28 @@ public class BPackageManagerService extends IBPackageManagerService.Stub impleme
             Slog.d(TAG, "install finish: " + (System.currentTimeMillis() - l) + "ms");
         }
         return result;
+    }
+
+    /**
+     * GMS auto-provision: host pe real GMS ho to VM me bhi install karo
+     * taaki game ke andar Google login / Play Services bind real GMS se ho
+     * ("Google Play Services unusable" fix). Recursion-guarded.
+     */
+    private void autoInstallGmsIfNeeded(String packageName, int userId) {
+        if (packageName == null || mGmsAutoInstalling.get()) return;
+        if (GmsCore.isGoogleAppOrService(packageName)) return;
+        if (!GmsCore.isSupportGms()) return;
+        if (GmsCore.isInstalledGoogleService(userId)) return;
+        mGmsAutoInstalling.set(true);
+        try {
+            InstallResult gmsResult = GmsCore.installGApps(userId);
+            Slog.d(TAG, "Auto GMS install for user " + userId + ": "
+                    + (gmsResult != null && gmsResult.success ? "ok" : "failed"));
+        } catch (Throwable t) {
+            Slog.e(TAG, "Auto GMS install error", t);
+        } finally {
+            mGmsAutoInstalling.set(false);
+        }
     }
 
     private PackageParser.Package parserApk(String file) {

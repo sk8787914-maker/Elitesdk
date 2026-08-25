@@ -554,6 +554,71 @@ public class AuthCore {
                path.contains("consent");
     }
 
+    // ================================================================
+    // AUTH CALLBACK HOOK (twitterkit:// / fb{appId}://)
+    //
+    // Native app OAuth complete karke callback bhejta hai —
+    // wo callback VM ke bahar (host AMS) lost ho jata tha isliye
+    // webview "Loading..." pe atak jata tha. Relay isko VM me
+    // game ke deep-link handler tak pahunchata hai.
+    // ================================================================
+
+    /**
+     * Auth callback URI check: twitterkit:// ya fb{appId}:// (digits only)
+     */
+    public static boolean isAuthCallbackUri(Uri data) {
+        if (data == null) return false;
+        String scheme = data.getScheme();
+        if (scheme == null) return false;
+        String s = scheme.toLowerCase();
+        if (s.equals("twitterkit")) return true;
+        if (s.length() > 2 && s.startsWith("fb")) {
+            String rest = s.substring(2);
+            for (int i = 0; i < rest.length(); i++) {
+                if (!Character.isDigit(rest.charAt(i))) return false;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Auth callback intent check
+     */
+    public static boolean isAuthCallbackIntent(Intent intent) {
+        if (intent == null) return false;
+        return isAuthCallbackUri(intent.getData());
+    }
+
+    /**
+     * Callback ke liye native package (pehla installed)
+     * twitterkit:// -> X/Twitter, fb:// / fb{appId}:// -> Facebook
+     */
+    public static String callbackNativePackage(Uri data) {
+        if (data == null) return null;
+        String scheme = data.getScheme();
+        if (scheme == null) return null;
+        String s = scheme.toLowerCase();
+        if (s.equals("twitterkit")) {
+            if (isNativeAppInstalled(X_PKG)) return X_PKG;
+            if (isNativeAppInstalled(TWITTER_PKG)) return TWITTER_PKG;
+            if (isNativeAppInstalled(TWITTER_LITE_PKG)) return TWITTER_LITE_PKG;
+            return null;
+        }
+        if (s.equals("fb")) {
+            // plain fb:// links (profile/deeplink) — native FB app
+            return isNativeAppInstalled(FB_PKG) ? FB_PKG : null;
+        }
+        if (s.length() > 2 && s.startsWith("fb")) {
+            String rest = s.substring(2);
+            for (int i = 0; i < rest.length(); i++) {
+                if (!Character.isDigit(rest.charAt(i))) return null;
+            }
+            return isNativeAppInstalled(FB_PKG) ? FB_PKG : null;
+        }
+        return null;
+    }
+
     /**
      * Host pe real native app installed hai?
      */
