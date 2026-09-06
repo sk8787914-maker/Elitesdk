@@ -92,6 +92,7 @@ tasks.withType(Javadoc) {
 
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.2.0'
+    testImplementation 'junit:junit:4.13.2'
     //implementation 'com.android.tools.build:apksig:4.2.0'
     //implementation 'org.lsposed.hiddenapibypass:hiddenapibypass:6.1'
     implementation 'com.github.tiann:FreeReflection:3.2.2'

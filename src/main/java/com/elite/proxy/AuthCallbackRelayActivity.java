@@ -61,6 +61,11 @@ public class AuthCallbackRelayActivity extends Activity {
             return;
         }
 
+        if (!AuthCore.acceptAuthCallback(data)) {
+            Slog.w(TAG, "Rejected unmatched OAuth callback: " + data);
+            return;
+        }
+
         // EliteInstaller init nahi hua -> native app fallback
         if (!isSdkReady()) {
             launchNativeFallback(data, callback);

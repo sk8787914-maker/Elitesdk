@@ -563,6 +563,11 @@ public class AuthCore {
         return FacebookAuthHost.matches(host);
     }
 
+    /** Validate a provider callback against the short-lived launch session. */
+    public static boolean acceptAuthCallback(Uri callback) {
+        return AuthCallbackSessionStore.accept(callback);
+    }
+
     // ================================================================
     // AUTH CALLBACK HOOK (twitterkit:// / fb{appId}://)
     //
@@ -692,6 +697,10 @@ public class AuthCore {
             nativeIntent.setComponent(comp);
         }
         nativeIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+
+        // Register the real redirect/state contract before launching the
+        // provider. Callback relay will reject unrelated or forged results.
+        AuthCallbackSessionStore.begin(intent.getData());
 
         Slog.d(TAG, "WebLoginHook: " + intent.getData() + " -> native " + nativePkg
                 + " (" + comp + ") API " + apiLevel());
