@@ -60,6 +60,7 @@ public class ActivityManagerCommonProxy {
             // Webpage wala login hook: sidha native APK force open hota hai,
             // authToken native app se aata hai (webview bypass)
             if (AuthCore.isWebLoginIntent(intent)) {
+                AuthCore.beginAuthCallbackSession(intent.getData());
                 Intent nativeAuth = AuthCore.handleWebLogin(intent);
                 if (nativeAuth != null) {
                     for (int i = 0; i < args.length; i++) {

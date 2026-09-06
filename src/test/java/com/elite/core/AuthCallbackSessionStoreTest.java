@@ -44,4 +44,13 @@ public class AuthCallbackSessionStoreTest {
         assertTrue(AuthCallbackSessionStore.accept(
                 Uri.parse("fbconnect://cct.app#state=fb-state&access_token=good")));
     }
+
+    @Test
+    public void legacyTwitterAuthorizePageCanReturnWithoutRedirectUri() {
+        AuthCallbackSessionStore.begin(Uri.parse(
+                "https://api.twitter.com/oauth/authorize?oauth_token=request-token"));
+
+        assertTrue(AuthCallbackSessionStore.accept(Uri.parse(
+                "twitterkit://callback?oauth_token=request-token&oauth_verifier=verified")));
+    }
 }

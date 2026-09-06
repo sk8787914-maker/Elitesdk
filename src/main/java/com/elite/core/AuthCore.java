@@ -568,6 +568,11 @@ public class AuthCore {
         return AuthCallbackSessionStore.accept(callback);
     }
 
+    /** Register the redirect/state contract before either browser or native launch. */
+    public static void beginAuthCallbackSession(Uri authUri) {
+        AuthCallbackSessionStore.begin(authUri);
+    }
+
     // ================================================================
     // AUTH CALLBACK HOOK (twitterkit:// / fb{appId}://)
     //
@@ -682,6 +687,12 @@ public class AuthCore {
      */
     public static Intent handleWebLogin(Intent intent) {
         if (!isWebLoginIntent(intent)) return null;
+
+        // Facebook web OAuth must stay in the browser/Custom Tab. Forcing the
+        // Facebook package here makes the host activity finish immediately on
+        // devices where the app does not expose the requested OAuth component.
+        Uri webData = intent.getData();
+        if (webData != null && FacebookAuthHost.matches(webData.getHost())) return null;
 
         String nativePkg = targetNativePackage(intent);
         if (nativePkg == null) {

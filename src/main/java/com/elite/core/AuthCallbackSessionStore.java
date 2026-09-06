@@ -25,14 +25,17 @@ final class AuthCallbackSessionStore {
         if (authUri == null) return;
         String redirect = authUri.getQueryParameter("redirect_uri");
         String state = authUri.getQueryParameter("state");
-        if (redirect == null || redirect.trim().isEmpty()) return;
-        Uri expected;
-        try {
-            expected = Uri.parse(redirect);
-        } catch (Throwable ignored) {
+        Uri expected = null;
+        if (redirect != null && !redirect.trim().isEmpty()) {
+            try {
+                expected = Uri.parse(redirect);
+            } catch (Throwable ignored) {
+                return;
+            }
+            if (expected.getScheme() == null || expected.getScheme().isEmpty()) return;
+        } else if (!isLegacyTwitterAuthorize(authUri)) {
             return;
         }
-        if (expected.getScheme() == null || expected.getScheme().isEmpty()) return;
         synchronized (LOCK) {
             purgeLocked(SystemClock.elapsedRealtime());
             // One virtual app launch owns the active callback slot. Replacing
@@ -60,14 +63,16 @@ final class AuthCallbackSessionStore {
                     }
                     if (!session.state.equals(callbackState)) continue;
                 }
-                SESSIONS.remove(session);
-                return hasOAuthResult(callback);
+                boolean result = hasOAuthResult(callback);
+                if (result) SESSIONS.remove(session);
+                return result;
             }
             return false;
         }
     }
 
     private static boolean sameRedirect(Uri expected, Uri callback) {
+        if (expected == null) return isTwitterCallback(callback);
         if (!eq(expected.getScheme(), callback.getScheme())) return false;
         if (!eq(expected.getAuthority(), callback.getAuthority())) return false;
         if (!eq(normalizePath(expected.getPath()), normalizePath(callback.getPath()))) return false;
@@ -75,6 +80,26 @@ final class AuthCallbackSessionStore {
             if (!expected.getQueryParameters(name).equals(callback.getQueryParameters(name))) return false;
         }
         return true;
+    }
+
+    private static boolean isLegacyTwitterAuthorize(Uri uri) {
+        String host = uri.getHost();
+        String path = uri.getPath();
+        if (host == null || path == null) return false;
+        String h = host.toLowerCase();
+        String p = path.toLowerCase();
+        return ("twitter.com".equals(h) || h.endsWith(".twitter.com")
+                || "x.com".equals(h) || h.endsWith(".x.com"))
+                && (p.contains("authorize") || p.contains("authenticate"));
+    }
+
+    private static boolean isTwitterCallback(Uri callback) {
+        String scheme = callback.getScheme();
+        if (scheme == null) return false;
+        String s = scheme.toLowerCase();
+        return s.equals("twittersdk") || s.equals("twitterkit") || s.equals("twitter")
+                || s.equals("twitterauth") || s.equals("oauth-twitter")
+                || s.equals("xauth") || s.equals("x");
     }
 
     private static String normalizePath(String path) {
