@@ -536,11 +536,9 @@ public class AuthCore {
         for (String h : TWITTER_WEB_HOSTS) {
             if (h.equalsIgnoreCase(host)) { authHost = true; break; }
         }
-        if (!authHost) {
-            for (String h : FB_WEB_HOSTS) {
-                if (h.equalsIgnoreCase(host)) { authHost = true; break; }
-            }
-        }
+        // Keep the exact allow-list and additionally accept legitimate
+        // Facebook auth subdomains through the focused source-derived check.
+        if (!authHost) authHost = FacebookAuthHost.matches(host);
         if (!authHost) return false;
 
         // Path filter: sirf OAuth/login flows hook karo
@@ -552,6 +550,20 @@ public class AuthCore {
                path.contains("dialog") ||
                path.contains("authenticate") ||
                path.contains("consent");
+    }
+
+    /**
+     * Strict Twitter/X OAuth2 authorization check from the source library.
+     * Legacy Twitter paths continue through {@link #isWebLoginIntent(Intent)}.
+     */
+    public static boolean isTwitterOAuth2AuthorizeIntent(Intent intent) {
+        if (intent == null || intent.getData() == null) return false;
+        return TwitterOAuthUrl.isModernOAuth2Authorize(intent.getData().toString());
+    }
+
+    /** Return whether a host belongs to Facebook, including auth subdomains. */
+    public static boolean isFacebookAuthHost(String host) {
+        return FacebookAuthHost.matches(host);
     }
 
     // ================================================================
