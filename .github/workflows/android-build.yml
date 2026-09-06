@@ -42,7 +42,7 @@ jobs:
           gradle-version: 8.14.4
 
       - name: Build library
-        run: gradle clean test assemble --stacktrace
+        run: gradle clean testDebugUnitTest assemble --stacktrace
 
       - name: Upload AAR artifacts
         uses: actions/upload-artifact@v4
