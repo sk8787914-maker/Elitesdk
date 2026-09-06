@@ -14,6 +14,18 @@ final class TwitterOAuthUrl {
     private TwitterOAuthUrl() {
     }
 
+    static boolean isOfficialHost(String rawHost) {
+        String host = rawHost == null ? "" : rawHost.toLowerCase(Locale.US);
+        return "x.com".equals(host)
+                || "www.x.com".equals(host)
+                || "mobile.x.com".equals(host)
+                || "twitter.com".equals(host)
+                || "www.twitter.com".equals(host)
+                || "mobile.twitter.com".equals(host)
+                || "api.twitter.com".equals(host)
+                || "api.x.com".equals(host);
+    }
+
     static boolean isModernOAuth2Authorize(String value) {
         if (value == null || value.isEmpty() || value.length() > MAX_URL_LENGTH) {
             return false;
@@ -23,14 +35,7 @@ final class TwitterOAuthUrl {
             if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getUserInfo() != null) {
                 return false;
             }
-            String host = uri.getHost();
-            host = host == null ? "" : host.toLowerCase(Locale.US);
-            if (!("x.com".equals(host)
-                    || "www.x.com".equals(host)
-                    || "mobile.x.com".equals(host)
-                    || "twitter.com".equals(host)
-                    || "www.twitter.com".equals(host)
-                    || "mobile.twitter.com".equals(host))) {
+            if (!isModernOAuth2Host(uri.getHost())) {
                 return false;
             }
             String path = uri.getPath();
@@ -38,5 +43,15 @@ final class TwitterOAuthUrl {
         } catch (IllegalArgumentException ignored) {
             return false;
         }
+    }
+
+    private static boolean isModernOAuth2Host(String rawHost) {
+        String host = rawHost == null ? "" : rawHost.toLowerCase(Locale.US);
+        return "x.com".equals(host)
+                || "www.x.com".equals(host)
+                || "mobile.x.com".equals(host)
+                || "twitter.com".equals(host)
+                || "www.twitter.com".equals(host)
+                || "mobile.twitter.com".equals(host);
     }
 }

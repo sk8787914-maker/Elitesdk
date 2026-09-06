@@ -340,13 +340,20 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="twittersdk" />
                 <data android:scheme="twitterkit" />
+                <data android:scheme="twitter" />
+                <data android:scheme="twitterauth" />
+                <data android:scheme="oauth-twitter" />
+                <data android:scheme="xauth" />
+                <data android:scheme="x" />
             </intent-filter>
             <intent-filter android:priority="999">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="fb" />
+                <data android:scheme="fbconnect" />
             </intent-filter>
         </activity>
 

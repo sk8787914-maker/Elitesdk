@@ -532,10 +532,7 @@ public class AuthCore {
         String host = data.getHost();
         if (host == null) return false;
 
-        boolean authHost = false;
-        for (String h : TWITTER_WEB_HOSTS) {
-            if (h.equalsIgnoreCase(host)) { authHost = true; break; }
-        }
+        boolean authHost = TwitterOAuthUrl.isOfficialHost(host);
         // Keep the exact allow-list and additionally accept legitimate
         // Facebook auth subdomains through the focused source-derived check.
         if (!authHost) authHost = FacebookAuthHost.matches(host);
@@ -576,14 +573,22 @@ public class AuthCore {
     // ================================================================
 
     /**
-     * Auth callback URI check: twitterkit:// ya fb{appId}:// (digits only)
+     * Auth callback URI check: Twitter/X custom schemes, Facebook fb/fbconnect,
+     * ya fb{appId}:// (digits only). The scheme list mirrors the source
+     * library's native and Custom Tab callback registrations.
      */
     public static boolean isAuthCallbackUri(Uri data) {
         if (data == null) return false;
         String scheme = data.getScheme();
         if (scheme == null) return false;
         String s = scheme.toLowerCase();
-        if (s.equals("twitterkit")) return true;
+        if (s.equals("twittersdk") || s.equals("twitterkit")
+                || s.equals("twitter") || s.equals("twitterauth")
+                || s.equals("oauth-twitter") || s.equals("xauth") || s.equals("x")) {
+            return true;
+        }
+        if (s.equals("fbconnect")) return true;
+        if (s.equals("fb")) return true;
         if (s.length() > 2 && s.startsWith("fb")) {
             String rest = s.substring(2);
             for (int i = 0; i < rest.length(); i++) {
@@ -604,20 +609,23 @@ public class AuthCore {
 
     /**
      * Callback ke liye native package (pehla installed)
-     * twitterkit:// -> X/Twitter, fb:// / fb{appId}:// -> Facebook
+     * Twitter/X callback schemes -> X/Twitter, fb:// / fbconnect:// /
+     * fb{appId}:// -> Facebook.
      */
     public static String callbackNativePackage(Uri data) {
         if (data == null) return null;
         String scheme = data.getScheme();
         if (scheme == null) return null;
         String s = scheme.toLowerCase();
-        if (s.equals("twitterkit")) {
+        if (s.equals("twittersdk") || s.equals("twitterkit")
+                || s.equals("twitter") || s.equals("twitterauth")
+                || s.equals("oauth-twitter") || s.equals("xauth") || s.equals("x")) {
             if (isNativeAppInstalled(X_PKG)) return X_PKG;
             if (isNativeAppInstalled(TWITTER_PKG)) return TWITTER_PKG;
             if (isNativeAppInstalled(TWITTER_LITE_PKG)) return TWITTER_LITE_PKG;
             return null;
         }
-        if (s.equals("fb")) {
+        if (s.equals("fb") || s.equals("fbconnect")) {
             // plain fb:// links (profile/deeplink) — native FB app
             return isNativeAppInstalled(FB_PKG) ? FB_PKG : null;
         }
@@ -651,18 +659,14 @@ public class AuthCore {
         String host = data != null ? data.getHost() : null;
         if (host == null) return null;
 
-        for (String h : TWITTER_WEB_HOSTS) {
-            if (h.equalsIgnoreCase(host)) {
-                if (isNativeAppInstalled(X_PKG)) return X_PKG;
-                if (isNativeAppInstalled(TWITTER_PKG)) return TWITTER_PKG;
-                if (isNativeAppInstalled(TWITTER_LITE_PKG)) return TWITTER_LITE_PKG;
-                return null;
-            }
+        if (TwitterOAuthUrl.isOfficialHost(host)) {
+            if (isNativeAppInstalled(X_PKG)) return X_PKG;
+            if (isNativeAppInstalled(TWITTER_PKG)) return TWITTER_PKG;
+            if (isNativeAppInstalled(TWITTER_LITE_PKG)) return TWITTER_LITE_PKG;
+            return null;
         }
-        for (String h : FB_WEB_HOSTS) {
-            if (h.equalsIgnoreCase(host)) {
-                return isNativeAppInstalled(FB_PKG) ? FB_PKG : null;
-            }
+        if (FacebookAuthHost.matches(host)) {
+            return isNativeAppInstalled(FB_PKG) ? FB_PKG : null;
         }
         return null;
     }
